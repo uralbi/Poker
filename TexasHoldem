@@ -1,0 +1,709 @@
+import tkinter as tk
+import random
+from collections import Counter
+from tkinter import messagebox
+
+# task
+class Deck:
+    def __init__(self):
+        ccc = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
+        bb = ['Spades', 'Clubs', 'Hearts', 'Diamonds']
+        deck = [(i, j) for i in ccc for j in bb]
+        random.shuffle(deck)
+        self.cards = deck
+
+    def deal(self, num):
+        r_cards = []
+        for i in range(1, num + 1):
+            r_cards.append(self.cards.pop())
+        return r_cards
+
+
+class Hand:
+
+    def __init__(self, dealer=False):
+        self.ccc = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
+        self.dealer = dealer
+        self.cards = []
+        self.value = 0
+        self.balance = 0
+
+    def add_cards(self, cards):
+        self.cards.extend(cards)
+
+    def get_pl_hand(self, all_hand, pairs, high_cards):
+        pl_hand = []
+        pl_hand_2 = []
+        if len(pairs) == 0:
+            pl_hand = [h for h in all_hand for k in high_cards if self.ccc.index(h[0]) == k - 2]
+        elif len(pairs) == 1:
+            pl_hand = [h for h in all_hand if h[0] == self.ccc[pairs[0][0] - 2]]
+            pl_hand_2 = [h for h in all_hand for k in high_cards if self.ccc.index(h[0]) == k - 2]
+        elif len(pairs) == 2:
+            if 3 in [pairs[0][1], pairs[1][1]]:
+                pl_hand = [h for h in all_hand if
+                           h[0] == self.ccc[pairs[0][0] - 2] or h[0] == self.ccc[pairs[1][0] - 2]]
+            else:
+                pl_hand = [h for h in all_hand if
+                           h[0] == self.ccc[pairs[0][0] - 2] or h[0] == self.ccc[pairs[1][0] - 2]]
+                pl_hand_2 = [h for h in all_hand if self.ccc.index(h[0]) == high_cards[2] - 2]
+        elif len(pairs) == 3:
+            if 3 in [pairs[0][1], pairs[1][1], pairs[2][1]]:
+                if pairs[2][1] == 3 or pairs[1][1] == 3:
+                    pl_hand = [h for h in all_hand if
+                               h[0] == self.ccc[pairs[2][0] - 2] or h[0] == self.ccc[pairs[1][0] - 2]]
+                else:
+                    pl_hand = [h for h in all_hand if
+                               h[0] == self.ccc[pairs[0][0] - 2] or h[0] == self.ccc[pairs[2][0] - 2]]
+            else:
+                pl_hand = [h for h in all_hand for k in high_cards if self.ccc.index(h[0]) == k - 2][:5]
+        pl_hand += pl_hand_2
+        return pl_hand
+
+    def hand_score(self, all_cards):
+        """
+        :param hand_cards: List of tuple
+        :param hand_tab: List of tuple
+        :return: Tuple(str, list , int , list or none)
+        """
+        b_cards, f_cards, str_cards = [], [], []
+        hand_2 = all_cards
+        for i in hand_2:
+            b_cards.append(i[0])
+            f_cards.append(i[1])
+            str_cards.append(self.ccc.index(i[0]) + 2)
+        b_dict = Counter(sorted(str_cards))  # card keys
+        f_dict = Counter(f_cards)  # card types and color
+        sorted_cards = list(set(str_cards))  # sorted cards and removed duplicates
+        sorted_cards.sort()
+        # ------------------------------------------------------------ check FLUSH
+        flush = False
+        flush_c = ''
+        flush_h, flush_flt, fl_keys, fl_max = [], [], [], []
+        for k, v in f_dict.items():
+            if v >= 5:
+                flush = f'{k}-{v}'
+                flush_c = k
+        if flush:
+            flush_h = [cc for i in sorted_cards for cc in hand_2 if i == self.ccc.index(cc[0]) + 2 and cc[1] == flush_c]
+            flush_h = flush_h[-5:]
+            flush_max = self.ccc.index(flush_h[-1][0]) + 2
+        # ------------------------------------------------------------ FLUSH
+        # ------------------------------------------------------------ check straight
+        str_check = []
+        for i in range(1, len(sorted_cards)):
+            x = sorted_cards[i] - sorted_cards[i - 1]
+            if x == 1:
+                str_check.append(1)
+            else:
+                str_check.append(0)
+        str_score = 0
+        for i in str_check:
+            if i == 1:
+                str_score += 1
+            elif str_score > 3:
+                break
+            else:
+                str_score = 0
+        str_hands = []
+        if str_score > 3:
+            straight = True
+            if str_check[1] == 0:
+                str_check[0] = 0
+            if len(str_check) > 5 and str_check[4] == 0:
+                str_check[5] = 0
+            for i, v in enumerate(str_check):
+                if v == 1:
+                    str_hands.append(sorted_cards[i])
+                    str_hands.append(sorted_cards[i + 1])
+            str_hands = list(set(str_hands))
+        else:
+            straight = False
+        straigh_all = []
+        for i in str_hands:
+            for h in hand_2:
+                if h[0] == self.ccc[i - 2]:
+                    straigh_all.append(h)
+                    break
+        straigh_h = straigh_all[-5:]
+        # _------------------------------------------------------ check for Royal Flush
+        r_flush_h = False
+        if flush and straight:
+            r_check = Counter([i[1] for i in straigh_all[-5:]])
+            if r_check[f'{flush_c}'] == 5:
+                r_flush_h = straigh_all[-5:]
+            else:
+                r_check = Counter([i[1] for i in straigh_all[-6:-1]])
+                if r_check[f'{flush_c}'] == 5:
+                    r_flush_h = straigh_all[-6:-1]
+                else:
+                    r_check = Counter([i[1] for i in straigh_all[:5]])
+                    if r_check[f'{flush_c}'] == 5:
+                        r_flush_h = straigh_all[:5]
+        # -------------------------------------------------end of Royal Flush check
+        pairs, high_c = [], []
+        pair, score = '', 0
+        for k, v in b_dict.items():
+            if v > 1:
+                pairs.append((k, v))
+            else:
+                high_c.append(k)
+        high_c = sorted(high_c)
+        if len(pairs) == 0:
+            pair = 'High Card'
+            high_c = high_c[-5:][::-1]
+            score = max(sorted_cards)
+
+        elif len(pairs) == 1:
+            if pairs[0][1] == 2:
+                pair = 'One Pair'
+                high_c = high_c[-3:][::-1]
+                score = 100 + pairs[0][0]
+            elif pairs[0][1] == 3:
+                pair = 'Three of a kind'
+                high_c = high_c[-2:][::-1]
+                score = 300 + pairs[0][0]
+            elif pairs[0][1] == 4:
+                pair = 'Four of a kind'
+                high_c = high_c[-1:]
+                score = 700 + pairs[0][0]
+        elif len(pairs) == 2:
+            if pairs[0][1] == 4:
+                pair = 'Four of a kind'
+                high_c = [pairs[1][0]]
+                score = 700 + pairs[0][0]
+                pairs = [(pairs[0][0], 4)]
+            elif pairs[1][1] == 4:
+                pair = 'Four of a kind'
+                high_c = [pairs[0][0]]
+                score = 700 + pairs[1][0]
+                pairs = [(pairs[1][0], 4)]
+            elif pairs[0][1] == 2 and pairs[1][1] == 2:
+                pair = 'Two Pairs'
+                if pairs[0][0] > pairs[1][0]:
+                    score = 200 + pairs[0][0]
+                    high_c = [pairs[0][0], pairs[1][0], high_c[-1:][0]]
+                else:
+                    score = 200 + pairs[1][0]
+                    high_c = [pairs[1][0], pairs[0][0], high_c[-1:][0]]
+            elif pairs[0][1] == 3 and pairs[1][1] == 3:
+                pair = 'Full House'
+                high_c = [20]
+                if pairs[0][0] > pairs[1][0]:
+                    score = 600 + pairs[0][0]
+                    pairs = [(pairs[0][0], 3), (pairs[1][0], 2)]
+                else:
+                    score = 600 + pairs[1][0]
+                    pairs = [(pairs[1][0], 3), (pairs[0][0], 2)]
+            elif pairs[0][1] == 3 and pairs[1][1] == 2:
+                pair = 'Full House'
+                score = 600 + pairs[0][0]
+                high_c = [20]
+            elif pairs[0][1] == 2 and pairs[1][1] == 3:
+                pair = 'Full House'
+                score = 600 + pairs[1][0]
+                high_c = [20]
+        elif len(pairs) == 3:
+            if pairs[0][1] == 3:
+                pair = 'Full House'
+                score = 600 + pairs[0][0]
+                high_c = [20]
+                pairs = pairs[:2]
+            elif pairs[1][1] == 3:
+                pair = 'Full House'
+                score = 600 + pairs[1][0]
+                high_c = [20]
+                pairs = pairs[:2]
+            elif pairs[2][1] == 3:
+                pair = 'Full House'
+                score = 600 + pairs[2][0]
+                high_c = [20]
+            else:
+                pair = 'Two Pairs'
+                high_c = [0] if len(high_c) == 0 else high_c
+                hc = high_c[0] if pairs[0][0] < high_c[0] else pairs[0][0]
+                high_c = [pairs[2][0], pairs[1][0], hc]
+                score = 200 + pairs[2][0]
+        else:
+            pass
+
+        pl_hand = self.get_pl_hand(hand_2, pairs, high_c)
+
+        if r_flush_h and r_flush_h[-1][0] == 'A':
+            pair = 'Royal Flush'
+            pl_hand = r_flush_h
+            score = 900
+        elif r_flush_h:
+            pair = 'Straight Flush'
+            pl_hand = r_flush_h
+            score = 800 + self.ccc.index(r_flush_h[-1][0]) + 2
+        elif flush:
+            pair = 'Flush'
+            high_c = sorted([self.ccc.index(i[0]) + 2 for i in flush_h])[::-1]
+            pl_hand = flush_h
+            score = 500 + flush_max
+        elif straight:
+            pair = 'Straight'
+            pl_hand = straigh_h
+            high_c = str_hands[-1:]
+            score = 400 + str_hands[-1]
+        self.value = pair, pl_hand, score, high_c
+        return self.value
+
+
+class App(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title('Texas Holdem Poker')
+        self.configure(background='#ebebe0')
+        self.geometry("600x280")
+        self.player = Hand()
+        self.dealer = Hand(dealer=True)
+        self.player.balance = self.dealer.balance = 500
+        self.stake = self.call = self.turn = self.bet = self.new_game_check = 0
+        self.bet_pl = self.bet_de = 0
+        self.btn_control = True
+        self.open_cards = []
+        self.ch_hist = []
+        self.dealer_dec = ''
+        self.win_count = self.lost_count = 0
+        n_deck = Deck()
+        self.player.cards = n_deck.deal(2)
+        self.dealer.cards = n_deck.deal(2)
+        self.board_cards = n_deck.deal(5)
+        self.player.value = self.player.hand_score(self.player.cards)
+        self.dealer.value = self.dealer.hand_score(self.dealer.cards)
+
+        bg_color = '#ebebe0'
+        ft_color = '#3d3d29'
+        left_x = 30
+
+        self.win_loss = tk.Label(self, text=f'Game Score: {self.win_count} out of {self.win_count + self.lost_count}',
+                                 bg=bg_color, fg=ft_color)
+        self.win_loss.pack()
+        self.win_loss.place(x=left_x, y=230)
+
+        self.my_hand = tk.Label(self, text=self.display_hand(self.player.cards[:2]), bg=bg_color, fg=ft_color,
+                                font=("Arial", 12))
+        self.my_hand.pack()
+        self.my_hand.place(x=250, y=200)
+        self.my_hand['text'] = self.display_hand(self.player.cards[:2])
+
+        self.strength_info = tk.Label(self, text=' - ', bg=bg_color, fg=ft_color, font=("Arial", 10))
+        self.strength_info.pack()
+        self.strength_info.place(x=350, y=200)
+
+        self.de_hand = tk.Label(self, text='| XX | XX |', bg=bg_color, fg=ft_color, width=30, font=("Arial", 12))
+        self.de_hand.pack()
+        self.de_hand.place(x=180, y=30)
+
+        self.de_action = tk.Label(self, text='Dealer: It is your turn', bg=bg_color, fg=ft_color)
+        self.de_action.pack()
+        self.de_action.place(x=left_x, y=60)
+
+        self.pl_action = tk.Label(self, text='Your turn ... ', bg=bg_color, fg=ft_color)
+        self.pl_action.pack()
+        self.pl_action.place(x=left_x, y=160)
+
+        self.stake_lbl = tk.Label(self, text=f'Stake: {self.stake} $', bg=bg_color, fg=ft_color)
+        self.stake_lbl.pack()
+        self.stake_lbl.place(x=450, y=30)
+
+        self.board = tk.Label(self, text=self.board_cards, bg=bg_color, fg=ft_color, height=2, width=30,
+                              font=("Arial", 17))
+        self.board.place(x=140, y=100)
+        self.board['text'] = ''
+
+        self.de_balance = tk.Label(self, text=f"Dealer's Balance: {self.dealer.balance}$", bg=bg_color, fg=ft_color)
+        self.de_balance.pack()
+        self.de_balance.place(x=left_x, y=30)
+
+        self.my_balance = tk.Label(self, text=f'My Balance: {self.player.balance}$', bg=bg_color, fg=ft_color)
+        self.my_balance.pack()
+        self.my_balance.place(x=left_x, y=200)
+
+        btn_width = 10
+        btn_x = 480
+
+        self.call_btn = tk.Button(self, text='Call / Bet', width=btn_width)
+        self.call_btn['command'] = self.call_fnc
+        self.call_btn.pack()
+        self.call_btn.place(x=btn_x, y=100)
+
+        self.allin_btn = tk.Button(self, text='  All - In   ', width=btn_width)
+        self.allin_btn['command'] = self.all_in
+        self.allin_btn.pack()
+        self.allin_btn.place(x=btn_x, y=70)
+
+        self.raise_btn = tk.Button(self, text='   Raise   ', width=btn_width)
+        self.raise_btn['command'] = self.raise_fnc
+        self.raise_btn.pack()
+        self.raise_btn.place(x=btn_x, y=130)
+
+        self.fold_btn = tk.Button(self, text='    Fold    ', width=btn_width)
+        self.fold_btn['command'] = self.fold_
+        self.fold_btn.pack()
+        self.fold_btn.place(x=btn_x, y=160)
+
+        self.quit_btn = tk.Button(self, text='    QUIT    ', width=btn_width)
+        self.quit_btn['command'] = self.destroy
+        self.quit_btn.pack()
+        self.quit_btn.place(x=btn_x, y=250)
+
+    def call_fnc(self):
+        self.new_game_check += 1
+        if self.btn_control:
+            self.check_balance()
+            if self.dealer_dec == 'all-in':
+                self.call_to_all_in(self.bet)
+            elif self.dealer_dec == 'raise':
+                self.dealer_dec = ''
+                self.player.balance -= 10
+                self.bet_pl += 10           # BET
+                self.stake += 10
+                self.call += 1
+                self.table_info(f'{self.call} : Your turn ...')
+                if self.call > 3:
+                    self.btn_control = False
+                    self.de_hand['text'] = f'{self.display_hand(self.dealer.cards)}\n\n{self.dealer.value[0]}' \
+                                           f'\n {self.display_hand(self.dealer.value[1])}'
+                    self.table_info('Final')
+                    self.after(3000, self.final)
+            else:
+                self.player.balance -= 10
+                self.bet_pl += 10       # BET
+                self.stake += 10
+                self.table_info('Call')
+                dealer_dec = self.dealer_decision('call', self.call, 'call')
+                self.dealer_dec = dealer_dec
+                if dealer_dec == 'call':
+                    self.dealer.balance -= 10
+                    self.bet_de += 10           # DE BET
+                    self.stake += 10
+                    self.call += 1
+                    self.table_info(f'{self.call} : Your turn ...')
+                    if self.call > 3:
+                        self.btn_control = False
+                        self.de_hand['text'] = f'{self.display_hand(self.dealer.cards)}\n\n{self.dealer.value[0]}' \
+                                               f'\n {self.display_hand(self.dealer.value[1])}'
+                        self.table_info('Final')
+                        self.after(3000, self.final)
+                elif dealer_dec == 'raise':
+                    self.dealer.balance -= 20
+                    self.bet_de += 20           # DE BET
+                    self.stake += 20
+                    self.table_info(f'{self.call} : Your turn ...')
+                elif dealer_dec == 'all-in':
+                    if self.player.balance >= self.dealer.balance:
+                        bet = self.dealer.balance
+                    else:
+                        bet = self.player.balance
+                    self.bet = bet
+                    self.stake += bet
+                    self.dealer.balance -= bet
+                    self.table_info(f'Call or Fold ? BET: {bet}')
+                elif dealer_dec == 'fold':
+                    self.de_folded()
+
+    def raise_fnc(self):
+        self.new_game_check += 1
+        if self.btn_control:
+            self.check_balance()
+            if self.dealer_dec == 'all-in':
+                self.call_to_all_in(self.bet)
+            elif self.dealer_dec == 'raise':
+                self.dealer_dec = ''
+                self.player.balance -= 20
+                self.bet_pl += 20
+                self.stake += 20
+                self.call += 1
+                self.table_info(f'{self.call} : Your turn ...')
+            else:
+                self.player.balance -= 20
+                self.bet_pl += 20  # BET
+                self.stake += 20
+                self.table_info('Call')
+                dealer_dec = self.dealer_decision('call', self.call, 'raise')
+                self.dealer_dec = dealer_dec
+                if dealer_dec == 'call':
+                    self.dealer.balance -= 20
+                    self.bet_de += 20  # BET
+                    self.stake += 20
+                    self.call += 1
+                    self.table_info(f'{self.call} : Your turn ...')
+                    if self.call > 3:
+                        self.btn_control = False
+                        self.de_hand['text'] = f'{self.display_hand(self.dealer.cards)} / {self.dealer.value[0]}' \
+                                               f'\n {self.display_hand(self.dealer.value[1])}'
+                        self.table_info('Final')
+                        self.after(3000, self.final)
+                elif dealer_dec == 'raise':
+                    self.dealer.balance -= 40
+                    self.bet_de += 40  # DE BET
+                    self.stake += 40
+                    self.table_info(f'{self.call} : Your turn ...')
+                elif dealer_dec == 'all-in':
+                    if self.player.balance >= self.dealer.balance:
+                        bet = self.dealer.balance
+                    else:
+                        bet = self.player.balance
+                    self.bet = bet
+                    self.stake += bet
+                    self.dealer.balance -= bet
+                    self.table_info(f'Call or Fold ? BET: {bet}')
+                elif dealer_dec == 'fold':
+                    self.de_folded()
+
+    def call_to_all_in(self, bet):
+        if self.call_btn:
+            self.player.balance -= bet
+            self.stake += bet
+            self.call = 3
+            self.table_info('All IN !')
+            self.btn_control = False
+            self.de_hand['text'] = f'{self.display_hand(self.dealer.cards)} / {self.dealer.value[0]}' \
+                                   f'\n {self.display_hand(self.dealer.value[1])}'
+            self.table_info('Final')
+            self.after(3000, self.final)
+
+    def de_folded(self):
+        if self.call == 0:
+            self.dealer.balance -= 10
+            self.stake += 10
+            self.player.balance += self.stake
+        else:
+            self.player.balance += self.stake
+        self.stake = 0
+        self.table_info('Nice')
+        self.btn_control = False
+        self.check_balance()
+        self.new_game()
+
+    def all_in(self):
+        self.new_game_check += 1
+        if self.btn_control:
+            bet = self.dealer.balance if self.player.balance >= self.dealer.balance else self.player.balance
+            self.stake += bet
+            self.player.balance -= bet
+            self.table_info('ALL-IN !')
+            dealer_dec = self.dealer_decision('all-in', self.call, 'all-in')
+            if dealer_dec == 'fold':
+                self.de_folded()
+            elif dealer_dec == 'call' or dealer_dec == 'all-in':
+                self.dealer_dec = 'all-in'
+                self.dealer.balance -= bet
+                self.stake += bet
+                self.open_cards = self.board_cards
+                self.dealer.value = self.dealer.hand_score(self.dealer.cards + self.open_cards)
+                self.de_hand['text'] = f'{self.display_hand(self.dealer.cards)}\n\n{self.dealer.value[0]}' \
+                                       f'\n {self.display_hand(self.dealer.value[1])}'
+                self.board['text'] = self.display_hand(self.open_cards)
+                self.table_info('Final')
+                self.btn_control = False
+                self.after(4000, self.final)
+
+    def table_info(self, message):
+
+        self.pl_action['text'] = f'{message}'
+        self.de_balance['text'] = f"Dealer's Balance {self.dealer.balance}$"
+        self.my_balance['text'] = f'My Balance: {self.player.balance}$'
+        self.stake_lbl['text'] = f'Stake: {self.stake} $'
+        self.my_hand['text'] = self.display_hand(self.player.cards)
+        self.win_loss['text'] = f'Your Score: {self.win_count} out of {self.win_count + self.lost_count}'
+        self.de_action.configure(fg="#3d3d29")
+        if self.call == 1:
+            self.open_cards = self.board_cards[:3]
+            self.player.value = self.player.hand_score(self.player.cards + self.open_cards)
+            self.dealer.value = self.dealer.hand_score(self.dealer.cards + self.open_cards)
+        elif self.call == 2:
+            self.open_cards = self.board_cards[:4]
+            self.player.value = self.player.hand_score(self.player.cards + self.open_cards)
+            self.dealer.value = self.dealer.hand_score(self.dealer.cards + self.open_cards)
+        elif self.call == 3:
+            self.open_cards = self.board_cards
+            self.player.value = self.player.hand_score(self.player.cards + self.open_cards)
+            self.dealer.value = self.dealer.hand_score(self.dealer.cards + self.open_cards)
+        if self.dealer_dec == 'all-in':
+            self.open_cards = self.board_cards
+            self.player.value = self.player.hand_score(self.player.cards + self.open_cards)
+            self.dealer.value = self.dealer.hand_score(self.dealer.cards + self.open_cards)
+            self.de_action.configure(fg="#800000")
+        elif self.dealer_dec == 'raise':
+            self.de_action.configure(fg="#b36b00")
+        elif self.dealer_dec == 'call':
+            self.de_action.configure(fg="#26734d")
+
+        self.board['text'] = self.display_hand(self.open_cards)
+        self.strength_info['text'] = f'{self.player.value[0]} | {self.chance(self.player.value[2])}% ' \
+                                     f'\n\n {self.display_hand(self.player.value[1])}'
+
+    def final(self):
+
+        self.open_cards = self.board_cards
+        pl_value = self.player.hand_score(self.player.cards + self.board_cards)
+        de_value = self.dealer.hand_score(self.dealer.cards + self.board_cards)
+        win = self.get_winner(pl_value, de_value)
+        if win == 1:
+            self.player.balance += self.stake
+            self.stake = 0
+            self.de_action['text'] = f'Dealer: You Won! with {self.player.value[0]} vs {self.dealer.value[0]}'
+        elif win == 2:
+            self.dealer.balance += self.stake
+            self.stake = 0
+            self.de_action['text'] = f'Dealer: You Lost! with {self.player.value[0]} vs {self.dealer.value[0]}'
+        else:
+            self.player.balance += self.stake / 2
+            self.dealer.balance += self.stake / 2
+            self.stake = 0
+            self.de_action['text'] = f'Dealer: Equal Hands! - {self.player.value[0]}'
+        self.de_hand['text'] = self.display_hand(self.dealer.cards[:2])
+        self.table_info('Final')
+        self.check_balance()
+        self.new_game()
+
+    def final_results(self):
+        self.de_action['text'] = f"Dealer'hand: {self.dealer.value[0]} {self.display_hand(self.dealer.value[1])}"
+        self.pl_action['text'] = f"Your'hand: {self.display_hand(self.player.value[1])}"
+
+    def fold_(self):
+        if self.btn_control == 1:
+            if self.call == 0:
+                self.player.balance -= 10
+                self.dealer.balance += 10
+            else:
+                self.dealer.balance += self.stake
+            self.stake = 0
+            self.call = 0
+            self.turn = 0
+            self.de_action['text'] = 'Dealer: Nice!'
+            self.new_game()
+            self.table_info('Fold')
+            self.check_balance()
+        else:
+            pass
+
+    def new_game(self):
+        self.new_game_check = 0
+        self.call = self.stake = self.turn = self.bet = 0
+        self.bet_pl = self.bet_de = 0
+        self.open_cards = []
+        self.dealer_dec = ''
+        n_deck = Deck()
+        self.player.cards = n_deck.deal(2)
+        self.dealer.cards = n_deck.deal(2)
+        self.board_cards = n_deck.deal(5)
+        self.player.value = self.player.hand_score(self.player.cards)
+        self.dealer.value = self.dealer.hand_score(self.dealer.cards)
+        self.strength_info[
+            'text'] = f'{self.player.hand_score(self.player.cards)[0]} : {self.chance(self.player.value[2])}'
+        self.de_hand['text'] = '| XX | XX |'
+        self.table_info("Let's start")
+        self.btn_control = True
+
+    def delay(self):
+        return True
+
+    def strenght_text(self):
+        self.strength_info[
+            'text'] = f'{self.player.hand_score(self.player.cards)[0]} : {self.chance(self.player.value[2])}'
+
+    def check_balance(self):
+        if self.player.balance <= 10:
+            self.lost_count += 1
+            self.game_over(f'You Lost! \n Play again ?')
+        elif self.dealer.balance <= 10:
+            self.win_count += 1
+            self.game_over(f'You won !!!, \n Play again?')
+
+    def game_over(self, message):
+        res = messagebox.askquestion('Texas Poker Game', message)
+        if res == 'yes':
+            self.de_action['text'] = 'Dealer: Welcome !'
+            self.player.balance = self.dealer.balance = 500
+            self.new_game()
+        elif res == 'no':
+            self.destroy()
+
+    def dealer_decision(self, choice, call, pl_choice):
+        if self.new_game_check == 1:
+            self.ch_hist.clear()
+        self.ch_hist.append(pl_choice)
+        score = self.dealer.hand_score(self.dealer.cards + self.open_cards)
+        ch_ = self.chance(score[2])
+        if call == 0:
+            if choice == 'all-in' or choice == '3':
+                dec = 'all-in' if self.dealer.balance < 40 or random.randint(1, 5) != 2 else 'fold'
+            elif choice == 'raise' or choice == '2':
+                if ch_ < 15 and random.randint(1, 7) == 3:
+                    dec = 'fold'
+                elif ch_ > 20 and random.randint(1, 10) == 2:
+                    dec = 'all-in'
+            elif choice == 'call' or choice == '1':
+                dec = 'all-in' if ch_ > 20 and random.randint(1, 8) == 6 else 'call'
+        elif call == 1 or call == 2:
+            if choice == 'call' or choice == "1":
+                dec = 'raise' if ch_ > 20 and random.randint(1, 5) == 2 else 'call'
+            elif choice == 'all-in' or choice == '3':
+                dec = 'fold' if ch_ < 20 and random.randint(1, 7) == 3 else 'call'
+            elif choice == 'raise' or choice == '2':
+                dec = 'all-in' if ch_ > 40 and random.randint(1, 10) == 2 else 'call'
+        elif call == 3:
+            if choice == 'call' or choice == "1":
+                dec = 'all-in' if ch_ > 30 and random.randint(1, 10) == 2 else 'call'
+            elif choice == 'all-in' or choice == '3':
+                dec = 'fold' if ch_ < 30 and random.randint(1, 10) == 3 else 'call'
+        if self.dealer.balance <= 20:
+            dec = 'all-in'
+        self.de_action['text'] = f'Dealer: {dec.title()} {"!" * self.call}'
+        return dec
+
+    def chance(self, my_s):
+        ch_1 = ((my_s // 100) + 1) * 10
+        ch_2 = (my_s - (my_s // 100) * 100) * 0.64
+        my_chance = ch_1 + ch_2
+        return round(my_chance, 2)
+
+    def get_winner(self, my_h, cm_h):
+        """
+        :param my_h: Evaluated Hand
+        :param cm_h: Evaluated Hand
+        :return: 1 (win), 2(lose), 0(draw)
+        """
+        if my_h[2] > cm_h[2]:
+            result = 1
+        elif my_h[2] < cm_h[2]:
+            result = 2
+        elif my_h[3]:
+            result = 0
+            for m, c in zip(my_h[3], cm_h[3]):
+                if m > c:
+                    result = 1
+                    break
+                elif m < c:
+                    result = 2
+                    break
+        else:
+            result = 0
+        return result
+
+    @staticmethod
+    def display_hand(hand):
+        show_hand = '| '
+        for i in hand:
+            for j in i:
+                if j == 'Spades':
+                    j = chr(0x2664)
+                elif j == 'Clubs':
+                    j = chr(0x2667)
+                elif j == 'Hearts':
+                    j = chr(0x2764)
+                elif j == 'Diamonds':
+                    j = chr(0x2666)
+                show_hand += f'{j} '
+            show_hand += ' | '
+        return show_hand
+
+
+if __name__ == '__main__':
+    app = App()
+    app.mainloop()
